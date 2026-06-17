@@ -164,7 +164,7 @@ export class GameScene extends Scene {
     };
     if (intros[id] && !this._visited.has(id)) {
       this._visited.add(id);
-      this.dialogue.show(intros[id], t('map_'+id)||def.name);
+      this.dialogue.show(t('intro_'+id)||intros[id], t('map_'+id)||def.name);
     }
   }
 
@@ -393,16 +393,16 @@ export class GameScene extends Scene {
         if (idx === 0) { this.quests.accept('escort'); await this.dialogue.show(t('dlg_xiao_he_quest'), t('npc_xiao_he')); }
         return;
       }
-      if (q && q.state === QUEST_STATE.ACTIVE) { await this.dialogue.show('快去芒砀山深处！到了自会有收获。', t('npc_xiao_he')); return; }
-      if (q && q.state === 'claimed') { await this.dialogue.show('乱世将至，保重。', t('npc_xiao_he')); return; }
+      if (q && q.state === QUEST_STATE.ACTIVE) { await this.dialogue.show(t('dlg_xiao_he_go')||'快去芒砀山深处！到了自会有收获。', t('npc_xiao_he')); return; }
+      if (q && q.state === 'claimed') { await this.dialogue.show(t('dlg_xiao_he_later')||'乱世将至，保重。', t('npc_xiao_he')); return; }
     }
     // 白蛇任务——芒砀山刑徒给（斩完自动奖励）
     if (npc.id === 'follower1') {
       var sq = this.quests._quests.get('slay_snake');
       if (sq && sq.state === QUEST_STATE.AVAILABLE) {
-        await this.dialogue.show('前面有条大白蛇挡路！\n亭长若能斩杀此蛇，\n必能树立威望！', t('npc_prisoner'));
-        var si = await this._sc2(['好！斩蛇立威！', '绕道而行']);
-        if (si === 0) { this.quests.accept('slay_snake'); await this.dialogue.show('那白蛇就在东边的路上！斩了它！', t('npc_prisoner')); }
+        await this.dialogue.show(t('dlg_snake_intro')||'前面有条大白蛇挡路！\n亭长若能斩杀此蛇，\n必能树立威望！', t('npc_prisoner'));
+        var si = await this._sc2([t('choice_slay')||'好！斩蛇立威！', t('choice_around')||'绕道而行']);
+        if (si === 0) { this.quests.accept('slay_snake'); await this.dialogue.show(t('dlg_snake_go')||'那白蛇就在东边的路上！斩了它！', t('npc_prisoner')); }
         return;
       }
     }
@@ -414,16 +414,16 @@ export class GameScene extends Scene {
       var q2 = this.quests._quests.get(qid2);
       if (q2 && q2.state === QUEST_STATE.AVAILABLE) {
         var qInfos = {
-          three_laws: ['张良：沛公！请入秦王宫，\n接受子婴投降，颁布约法三章！\n进入王宫自会获得封赏。', '诺！'],
-          escape_feast: ['项伯：（急切）快走！\n明日项羽就要动手了！\n到汉中就安全了，快！', '多谢！'],
-          chencang: ['韩信：明修栈道，暗度陈仓！\n抵达陈仓之日，\n就是关中归汉之时！', '善！'],
-          take_xingyang: ['陈平：荥阳守将必须击败！\n拿下荥阳，敖仓粮仓就是我们的！', '出击！'],
-          gaixia_battle: ['韩信：十面埋伏已成，\n请大王亲至乌江，\n见证项羽的末路。', '追击！'],
-          coronation: ['韩信：天下已定，\n请汉王移驾定陶，\n即皇帝位！', '登基！']
+          three_laws: ['dlg_three_laws_go', 'choice_yes'],
+          escape_feast: ['dlg_feast_go', 'choice_thanks'],
+          chencang: ['dlg_chencang_go', 'choice_yes'],
+          take_xingyang: ['dlg_xingyang_go', 'choice_strike'],
+          gaixia_battle: ['dlg_gaixia_go', 'choice_chase'],
+          coronation: ['dlg_coronation_go', 'choice_crown']
         };
         var qi = qInfos[qid2];
-        await this.dialogue.show(qi[0], t('npc_'+npc.id)||npc.name);
-        var idx2 = await this._sc2([qi[1], '等等']);
+        await this.dialogue.show(t(qi[0]), t('npc_'+npc.id)||npc.name);
+        var idx2 = await this._sc2([t(qi[1]), t('choice_wait')||'等等']);
         if (idx2 === 0) { this.quests.accept(qid2); }
         return;
       }
@@ -432,12 +432,12 @@ export class GameScene extends Scene {
     if (npc.id === 'white_snake') {
       await this.dialogue.show(t('dlg_snake'), t('npc_white_snake'));
       if (this.charisma >= 8) {
-        var i2 = await this._sc2(['⚔ 斩杀白蛇', '✨ 以赤帝之名感召']);
-        if (i2 === 1) { this.strategy += 1; this.charisma += 2; await this.dialogue.show('白蛇低首，化作白光消散。众人惊呼：赤帝之子！', ''); return; }
+        var i2 = await this._sc2([t('choice_slay_snake')||'⚔ 斩杀白蛇', t('choice_spirit')||'✨ 以赤帝之名感召']);
+        if (i2 === 1) { this.strategy += 1; this.charisma += 2; await this.dialogue.show(t('dlg_snake_spare')||'白蛇低首，化作白光消散。众人惊呼：赤帝之子！', ''); return; }
       }
-      var i3 = await this._sc2(['⚔ 攻击！(需攻击≥5)', '🏃 暂避']);
+      var i3 = await this._sc2([t('choice_fight_5')||'⚔ 攻击！(需攻击≥5)', t('choice_retreat')||'🏃 暂避']);
       if (i3 === 0) {
-        if (this.atk < 5) { await this.dialogue.show('攻击力不够！去完成押送任务获得赤霄剑。', ''); return; }
+        if (this.atk < 5) { await this.dialogue.show(t('dlg_need_atk')||'攻击力不够！去完成押送任务获得赤霄剑。', ''); return; }
         this.quests.advanceBy('kill', 'white_snake');
         this.prestige += 3; this.gold += 100;
         this.inventory.add('blood');
@@ -445,16 +445,16 @@ export class GameScene extends Scene {
       }
       return;
     }
-    if (npc.id === 'ziying') { await this.dialogue.show(npc.dialog, t('npc_ziying')); await this.dialogue.show(t('dlg_three_laws'), t('npc_ziying')); return; }
-    if (npc.id === 'xiang_yu') { await this.dialogue.show(npc.dialog, t('npc_xiang_yu')); await this.dialogue.show(t('dlg_hongmen_feast'), t('npc_xiang_yu')); return; }
-    if (npc.id === 'fan_zeng') { await this.dialogue.show('（举玉玦示意三次，项羽不应）范增摔碎玉斗："竖子不足与谋！夺项王天下者，必沛公也！"', t('npc_fan_zeng')); return; }
-    if (npc.id === 'hanxin') { await this.dialogue.show(npc.dialog, t('npc_hanxin')); await this.dialogue.show(t('dlg_chencang'), t('npc_hanxin')); return; }
-    if (npc.id === 'xiang_yu2') { await this.dialogue.show(npc.dialog, t('npc_xiang_yu2')); return; }
-    if (npc.id === 'liu_bang_final') { await this.dialogue.show(npc.dialog, t('npc_liu_bang_final')); return; }
-    if (npc.id === 'liu_bang_last') { await this.dialogue.show(npc.dialog, t('npc_liu_bang_last')); return; }
-    if (npc.id === 'lvhou') { await this.dialogue.show(npc.dialog, t('npc_lvhou')); return; }
+    if (npc.id === 'ziying') { await this.dialogue.show(t('dlg_ziying')||npc.dialog, t('npc_ziying')); await this.dialogue.show(t('dlg_three_laws'), t('npc_ziying')); return; }
+    if (npc.id === 'xiang_yu') { await this.dialogue.show(t('dlg_xiang_yu')||npc.dialog, t('npc_xiang_yu')); await this.dialogue.show(t('dlg_hongmen_feast'), t('npc_xiang_yu')); return; }
+    if (npc.id === 'fan_zeng') { await this.dialogue.show(t('dlg_fan_zeng')||'（举玉玦示意三次，项羽不应）范增摔碎玉斗："竖子不足与谋！夺项王天下者，必沛公也！"', t('npc_fan_zeng')); return; }
+    if (npc.id === 'hanxin') { await this.dialogue.show(t('dlg_hanxin')||npc.dialog, t('npc_hanxin')); await this.dialogue.show(t('dlg_chencang'), t('npc_hanxin')); return; }
+    if (npc.id === 'xiang_yu2') { await this.dialogue.show(t('dlg_xiang_yu2')||npc.dialog, t('npc_xiang_yu2')); return; }
+    if (npc.id === 'liu_bang_final') { await this.dialogue.show(t('dlg_liu_bang_final')||npc.dialog, t('npc_liu_bang_final')); return; }
+    if (npc.id === 'liu_bang_last') { await this.dialogue.show(t('dlg_liu_bang_last')||npc.dialog, t('npc_liu_bang_last')); return; }
+    if (npc.id === 'lvhou') { await this.dialogue.show(t('dlg_lvhou')||npc.dialog, t('npc_lvhou')); return; }
 
-    var dk = {wangao:'dlg_wangao',villager1:'dlg_villager',villager2:'dlg_qin_citizen',fan_kuai:'dlg_fan_kuai',lvzhi:'dlg_lvzhi',cao_shen:'dlg_cao_shen',xiang_bo:'dlg_xiang_bo',soldier1:'dlg_chu_soldier',elder:'dlg_villager'};
+    var dk = {wangao:'dlg_wangao',villager1:'dlg_villager',villager2:'dlg_qin_citizen',fan_kuai:'dlg_fan_kuai',lvzhi:'dlg_lvzhi',cao_shen:'dlg_cao_shen',xiang_bo:'dlg_xiang_bo',soldier1:'dlg_chu_soldier',elder:'dlg_villager',fan_kuai2:'dlg_fan_kuai2',xiang_zhuang:'dlg_xiang_zhuang',xiao_he2:'dlg_xiao_he2',zhang_han:'dlg_zhang_han',fan_kuai3:'dlg_fan_kuai3',ji_xin:'dlg_ji_xin',peng_yue:'dlg_peng_yue',zhang_liang2:'dlg_zhang_liang2',boatman:'dlg_boatman',lou_jing:'dlg_lou_jing',zhang_liang3:'dlg_zhang_liang3',liu_bang_old:'dlg_liu_bang_old',shusun_tong:'dlg_shusun_tong'};
     var d = dk[npc.id];
     var sn = t('npc_'+npc.id) || npc.name;
     await this.dialogue.show(d ? t(d) : (npc.dialog||'…'), sn);
@@ -506,7 +506,11 @@ export class GameScene extends Scene {
           ctx.fillRect(ppx-2, ppy-2, 4, 4);
         }
         ctx.globalAlpha = 1;
-        if (p.label) renderer.drawText(p.label, p.x+p.w/2-p.label.length*3, p.y-4, '#ffd700', '9px monospace');
+        if (p.label) {
+          var lbl = p.label;
+          if (p.labelKey) { var tr = t(p.labelKey); if (tr !== p.labelKey) lbl = tr; }
+          renderer.drawText(lbl, p.x+p.w/2-lbl.length*3, p.y-4, '#ffd700', '9px monospace');
+        }
       }
     }
 
