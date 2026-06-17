@@ -1,0 +1,34 @@
+/* 像素完美渲染 —— 全屏居中黑底画布 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game {
+  /* Canvas 内部分辨率 640×360，CSS 整数倍放大 */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+
+  /* 默认大小，JS 会在 resize 时调整为整数倍 */
+  width: 640px;
+  height: 360px;
+
+  /* 防止被选中、拖拽 */
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
