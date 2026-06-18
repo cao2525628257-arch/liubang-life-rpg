@@ -269,6 +269,43 @@ update(dt):
 2. `js/scenes/loading_scene.js` — import + steps数组加条目
 3. `js/data/maps.js` — NPC 的 `spriteKey` 指向新 key
 
+## 信息来源 / Historical Sources
+
+游戏历史内容参考以下资料：
+
+### 核心史料
+
+1. **《史记·高祖本纪》** — 刘邦传记，研究刘邦必读
+   - 📖 [CTEXT 中国哲学书电子化计划](https://ctext.org/shiji/gao-zu-ben-ji/zh)
+
+2. **《史记·项羽本纪》** — 与刘邦对照阅读最重要的史料
+   - 📖 [CTEXT 中国哲学书电子化计划](https://ctext.org/shiji/xiang-yu-ben-ji/zh)
+
+3. **《汉书·高帝纪》** — 官方史书中的刘邦
+   - 📖 [CTEXT 汉书·高帝纪上](https://ctext.org/han-shu/gao-di-ji-shang/zh)
+   - 📖 [CTEXT 汉书·高帝纪下](https://ctext.org/han-shu/gao-di-ji-xia/zh)
+
+### 扩展阅读
+
+- **《留侯世家》**（张良）
+- **《淮阴侯列传》**（韩信）
+- **《萧相国世家》**（萧何）
+
+> 从不同人物视角研究刘邦，对于分析"刘邦为何能战胜项羽"特别有帮助。
+
+### 学术研究
+
+4. **The Mythology of Liu Bang in Shiji and Western Han Elites**（英文论文）
+   - 讨论：刘邦出生神话、斩白蛇传说、天命思想、《史记》如何塑造刘邦形象、刘邦神话与西汉政治合法性
+   - 📖 [ResearchGate 全文 PDF](https://www.researchgate.net/publication/related)
+
+### 全文目录
+
+- 📖 [史记全文目录](https://ctext.org/shiji/zh)
+- 📖 [汉书全文目录](https://ctext.org/han-shu/zh)
+
+---
+
 ## 已知问题
 
 - 音效系统框架就绪但无音频文件
