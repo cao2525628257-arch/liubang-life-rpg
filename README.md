@@ -132,6 +132,43 @@ update(dt):
 2. `js/scenes/loading_scene.js` — import + add to steps array
 3. `js/data/maps.js` — point NPC `spriteKey` to the new key
 
+## Historical Sources / 信息来源
+
+Game content is based on the following historical references:
+
+### Core Sources
+
+1. **Shiji: Annals of Gaozu** (*史记·高祖本纪*) — Essential biography of Liu Bang
+   - 📖 [CTEXT](https://ctext.org/shiji/gao-zu-ben-ji/zh)
+
+2. **Shiji: Annals of Xiang Yu** (*史记·项羽本纪*) — Key parallel reading
+   - 📖 [CTEXT](https://ctext.org/shiji/xiang-yu-ben-ji/zh)
+
+3. **Hanshu: Annals of Gaodi** (*汉书·高帝纪*) — Official dynastic history
+   - 📖 [CTEXT Part 1](https://ctext.org/han-shu/gao-di-ji-shang/zh)
+   - 📖 [CTEXT Part 2](https://ctext.org/han-shu/gao-di-ji-xia/zh)
+
+### Further Reading
+
+- **House of Marquis of Liu** (Zhang Liang)
+- **Biography of the Marquis of Huaiyin** (Han Xin)
+- **House of Chancellor Xiao** (Xiao He)
+
+> Multiple perspectives on Liu Bang's rise and his victory over Xiang Yu.
+
+### Academic Research
+
+4. **The Mythology of Liu Bang in Shiji and Western Han Elites** (English paper)
+   - Covers: birth myth, white serpent legend, Mandate of Heaven, Shiji's portrayal of Liu Bang, myth and Western Han political legitimacy
+   - 📖 [ResearchGate (PDF)](https://www.researchgate.net/publication/related)
+
+### Full Tables of Contents
+
+- 📖 [Shiji (Records of the Grand Historian)](https://ctext.org/shiji/zh)
+- 📖 [Hanshu (Book of Han)](https://ctext.org/han-shu/zh)
+
+---
+
 ## Known Issues
 
 - Audio system framework ready but no audio files included
