@@ -9,6 +9,8 @@
 # Rise of Liu Bang / 刘邦人生
 
 > 2D Pixel Historical RPG — From commoner to Emperor of Han, relive Liu Bang's legendary rise
+>
+> 🎵 Procedural chiptune BGM + SFX · 🎮 Mobile touch controls · ⚔️ XP/Level/Equipment · 💥 Screen shake + particles · 💬 73 story dialogue nodes · 🌍 CN/EN bilingual
 
 🌐 **Play Online**: https://cao2525628257-arch.github.io/liubang-life-rpg/
 
@@ -181,8 +183,6 @@ Game content is based on the following historical references:
 
 ## Known Issues
 
-- No touch controls for mobile
-- `js/data/dialogues.js` has full 10-chapter dialogue data written but not yet wired to NPC interactions
 - Map data hardcoded in JS rather than managed as JSON files
 
 ---
@@ -192,6 +192,8 @@ Game content is based on the following historical references:
 # 刘邦人生 / Rise of Liu Bang
 
 > 2D 像素历史 RPG — 从布衣到大汉天子，重走刘邦逆袭之路
+>
+> 🎵 芯片风 BGM + 音效 · 🎮 移动端触屏操作 · ⚔️ 经验/等级/装备 · 💥 屏幕震动 + 粒子特效 · 💬 73个剧情对话节点 · 🌍 中英双语
 
 🌐 **在线版**: https://cao2525628257-arch.github.io/liubang-life-rpg/
 
@@ -364,6 +366,4 @@ update(dt):
 
 ## 已知问题
 
-- 手机端无触屏摇杆
-- `js/data/dialogues.js` 全10章对话数据已写好但未接入 NPC 交互
 - 地图数据在 JS 中手写，非 JSON 文件管理
