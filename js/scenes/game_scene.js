@@ -749,6 +749,18 @@ export class GameScene extends Scene {
     ctx.fillStyle = input._touchBtn.B ? 'rgba(255,130,130,'+(a*4)+')' : 'rgba(255,150,150,'+a+')';
     ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,'+(a*0.6)+')'; ctx.lineWidth = 1; ctx.stroke();
     renderer.drawUIText('B', input.btnBX-5, input.btnBY+5, '#fff', 'bold 12px monospace');
+    // 菜单按钮
+    ctx.beginPath(); ctx.arc(input.btnMenuX, input.btnMenuY, input.btnMenuR, 0, Math.PI*2);
+    ctx.fillStyle = input._touchBtn.Menu ? 'rgba(255,200,100,'+(a*5)+')' : 'rgba(255,180,80,'+(a*0.8)+')';
+    ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,'+(a*0.5)+')'; ctx.lineWidth = 1; ctx.stroke();
+    renderer.drawUIText('☰', input.btnMenuX-7, input.btnMenuY+5, '#fff', 'bold 11px monospace');
+    // L/M小按钮
+    ctx.beginPath(); ctx.arc(input.btnLX, input.btnLY, input.btnLR, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(180,180,200,'+(a*0.6)+')'; ctx.fill();
+    renderer.drawUIText('L', input.btnLX-4, input.btnLY+4, '#ccc', 'bold 8px monospace');
+    ctx.beginPath(); ctx.arc(input.btnMX, input.btnMY, input.btnMR, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(180,180,200,'+(a*0.6)+')'; ctx.fill();
+    renderer.drawUIText('M', input.btnMX-5, input.btnMY+4, '#ccc', 'bold 8px monospace');
   }
 
   _qm(id) {

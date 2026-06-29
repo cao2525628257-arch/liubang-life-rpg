@@ -28,12 +28,15 @@ class Input {
     this._touchMap = new Map();
     /** @type {{x:number,y:number}} 方向键方向 */
     this._touchDir = { x: 0, y: 0 };
-    /** @type {{A:boolean,B:boolean}} 按钮状态 */
-    this._touchBtn = { A: false, B: false };
+    /** @type {{A:boolean,B:boolean,Menu:boolean}} 按钮状态 */
+    this._touchBtn = { A: false, B: false, Menu: false };
     /** 触屏控件区域（游戏坐标） */
     this.dpadCX = 65; this.dpadCY = 275; this.dpadR = 42;
     this.btnAX = 565; this.btnAY = 275; this.btnR = 20;
     this.btnBX = 520; this.btnBY = 310; this.btnR = 18;
+    this.btnMenuX = 610; this.btnMenuY = 25; this.btnMenuR = 16;
+    this.btnLX = 580; this.btnLY = 15; this.btnLR = 10;
+    this.btnMX = 560; this.btnMY = 15; this.btnMR = 10;
   }
 
   /** 绑定事件到 canvas */
@@ -82,6 +85,12 @@ class Input {
     if (Math.hypot(gx - this.btnAX, gy - this.btnAY) < this.btnR) return 'a';
     // B按钮
     if (Math.hypot(gx - this.btnBX, gy - this.btnBY) < this.btnR) return 'b';
+    // 菜单按钮
+    if (Math.hypot(gx - this.btnMenuX, gy - this.btnMenuY) < this.btnMenuR) return 'menu';
+    // L语言
+    if (Math.hypot(gx - this.btnLX, gy - this.btnLY) < this.btnLR) return 'l';
+    // M静音
+    if (Math.hypot(gx - this.btnMX, gy - this.btnMY) < this.btnMR) return 'm';
     return null;
   }
 
@@ -100,16 +109,27 @@ class Input {
     var touches = e.changedTouches;
     for (var i = 0; i < touches.length; i++) {
       var t = touches[i];
-      var pos = {x: t.clientX, y: t.clientY};
-      if (this._canvas) pos = {x: (t.clientX - this._canvas.getBoundingClientRect().left) / (this._canvas.style.width ? parseInt(this._canvas.style.width)/640 : 1), y: (t.clientY - this._canvas.getBoundingClientRect().top) / (this._canvas.style.height ? parseInt(this._canvas.style.height)/360 : 1)};
-      // 简化：用clientX/Y估算游戏坐标（无需renderer转换）
-      var gx = pos.x, gy = pos.y;
+      var gx = t.clientX, gy = t.clientY;
+      if (this._canvas) {
+        var rect = this._canvas.getBoundingClientRect();
+        var sx = parseInt(this._canvas.style.width) / 640 || 1;
+        var sy = parseInt(this._canvas.style.height) / 360 || 1;
+        gx = (t.clientX - rect.left) / sx;
+        gy = (t.clientY - rect.top) / sy;
+      }
       var type = this._touchHitTest(gx, gy);
-      if (!type) continue;
+      if (!type) {
+        // 未命中按钮 → 记录为自由触摸（松手时模拟点击）
+        this._touchMap.set(t.identifier, 'free');
+        continue;
+      }
       this._touchMap.set(t.identifier, type);
       if (type === 'dpad') { this._updateTouchDir(gx, gy); this._injectDirKeys(); }
       else if (type === 'a') { this._touchBtn.A = true; this._keysJustPressed.add('KeyT'); this._keysDown.add('KeyT'); }
       else if (type === 'b') { this._touchBtn.B = true; this._keysJustPressed.add('Enter'); this._keysDown.add('Enter'); }
+      else if (type === 'menu') { this._touchBtn.Menu = true; this._keysJustPressed.add('Escape'); this._keysDown.add('Escape'); }
+      else if (type === 'l') { this._keysJustPressed.add('KeyL'); }
+      else if (type === 'm') { this._keysJustPressed.add('KeyM'); }
     }
   }
 
@@ -148,6 +168,12 @@ class Input {
       if (type === 'dpad') { this._touchDir.x = 0; this._touchDir.y = 0; this._clearDirKeys(); }
       else if (type === 'a') { this._touchBtn.A = false; this._keysDown.delete('KeyT'); }
       else if (type === 'b') { this._touchBtn.B = false; this._keysDown.delete('Enter'); }
+      else if (type === 'menu') { this._touchBtn.Menu = false; this._keysDown.delete('Escape'); }
+      else if (type === 'free') {
+        // 空白区域轻点 → 模拟确认键（标题画面、对话框等场景通用）
+        this._keysJustPressed.add('KeyT');
+        this._keysJustPressed.add('Enter');
+      }
       this._touchMap.delete(t.identifier);
     }
   }
