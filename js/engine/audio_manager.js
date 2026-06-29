@@ -1,116 +1,71 @@
+import { audioGen } from './audio_generator.js';
 import { CONFIG } from '../data/config.js';
 
 /**
- * 音效管理器 — BGM 循环播放 + SFX 短音效
+ * 音效管理器 — BGM 切换 + SFX 触发 + 音量/静音控制
+ * 内部委托给 AudioGenerator（Web Audio API 程序化合成）
  */
 class AudioManager {
   constructor() {
-    /** @type {Map<string, HTMLAudioElement>} BGM 缓存 */
-    this._bgmCache = new Map();
-    /** @type {Map<string, HTMLAudioElement>} SFX 缓存 */
-    this._sfxCache = new Map();
-
-    /** 当前播放的 BGM key */
+    this._gen = audioGen;
     this._currentBGM = null;
+    this._initialized = false;
+  }
 
-    /** 音量 0.0 — 1.0 */
-    this._bgmVolume = 0.7;
-    this._sfxVolume = 1.0;
-    this._muted = false;
+  /** 初始化 AudioContext（首次用户交互时调用） */
+  init() {
+    if (this._initialized) return;
+    this._gen.init();
+    this._initialized = true;
+    if (CONFIG.DEBUG) console.log('[Audio] 音频引擎已初始化');
   }
 
   /**
-   * 注册 BGM 音频
-   * @param {string} key
-   * @param {HTMLAudioElement} audio
+   * 播放/切换 BGM
+   * @param {string} key — town/field/palace/battle/title
    */
-  registerBGM(key, audio) {
-    audio.loop = true;
-    audio.volume = this._bgmVolume;
-    this._bgmCache.set(key, audio);
-  }
-
-  /**
-   * 注册 SFX 音频
-   * @param {string} key
-   * @param {HTMLAudioElement} audio
-   */
-  registerSFX(key, audio) {
-    audio.loop = false;
-    audio.volume = this._sfxVolume;
-    this._sfxCache.set(key, audio);
-  }
-
-  /** 播放/切换 BGM */
   playBGM(key) {
+    if (!this._initialized) return;
     if (this._currentBGM === key) return;
-
-    // 停止当前 BGM
-    this.stopBGM();
-
-    const bgm = this._bgmCache.get(key);
-    if (bgm) {
-      bgm.currentTime = 0;
-      bgm.volume = this._muted ? 0 : this._bgmVolume;
-      bgm.play().catch((e) => {
-        if (CONFIG.DEBUG) console.warn('[Audio] BGM 播放失败:', key, e.message);
-      });
-      this._currentBGM = key;
-    }
+    this._currentBGM = key;
+    this._gen.playBGM(key);
   }
 
   /** 停止 BGM */
   stopBGM() {
-    if (this._currentBGM) {
-      const bgm = this._bgmCache.get(this._currentBGM);
-      if (bgm) {
-        bgm.pause();
-        bgm.currentTime = 0;
-      }
-      this._currentBGM = null;
-    }
+    this._currentBGM = null;
+    this._gen.stopBGM();
   }
 
-  /** 播放音效（支持同时多个） */
+  /**
+   * 播放音效
+   * @param {string} key
+   */
   playSFX(key) {
-    const sfx = this._sfxCache.get(key);
-    if (sfx) {
-      sfx.volume = this._muted ? 0 : this._sfxVolume;
-      sfx.currentTime = 0;
-      sfx.play().catch((e) => {
-        if (CONFIG.DEBUG) console.warn('[Audio] SFX 播放失败:', key, e.message);
-      });
-    }
+    if (!this._initialized) return;
+    this._gen.playSFX(key);
   }
 
-  /** 设置 BGM 音量 */
-  setBGMVolume(v) {
-    this._bgmVolume = Math.max(0, Math.min(1, v));
-    if (this._currentBGM && !this._muted) {
-      const bgm = this._bgmCache.get(this._currentBGM);
-      if (bgm) bgm.volume = this._bgmVolume;
-    }
+  /**
+   * 播放角色语气音
+   * @param {string} type — default/female/warrior/scholar/elder/king/soldier/mystic/merchant/brute
+   */
+  playVoice(type) {
+    if (!this._initialized) return;
+    this._gen.voiceBlip(type);
   }
 
-  /** 设置 SFX 音量 */
-  setSFXVolume(v) {
-    this._sfxVolume = Math.max(0, Math.min(1, v));
-  }
+  /** BGM 音量 0.0–1.0 */
+  setBGMVolume(v) { this._gen.setBGMVolume(v); }
 
-  /** 切换静音 */
-  toggleMute() {
-    this._muted = !this._muted;
-    if (this._currentBGM) {
-      const bgm = this._bgmCache.get(this._currentBGM);
-      if (bgm) bgm.volume = this._muted ? 0 : this._bgmVolume;
-    }
-    return this._muted;
-  }
+  /** SFX 音量 0.0–1.0 */
+  setSFXVolume(v) { this._gen.setSFXVolume(v); }
 
-  /** 是否静音中 */
-  get muted() {
-    return this._muted;
-  }
+  /** 切换静音，返回当前状态 */
+  toggleMute() { return this._gen.toggleMute(); }
+
+  get muted() { return this._gen.muted; }
+  get initialized() { return this._initialized; }
 }
 
 export const audio = new AudioManager();

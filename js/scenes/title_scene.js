@@ -5,6 +5,7 @@ import { renderer } from '../engine/renderer.js';
 import { CONFIG, COLORS } from '../data/config.js';
 import { LoadingScene } from './loading_scene.js';
 import { t, lang, initLang } from '../systems/localization.js';
+import { audio } from '../engine/audio_manager.js';
 
 export class TitleScene extends Scene {
   constructor() {
@@ -14,6 +15,9 @@ export class TitleScene extends Scene {
 
   enter() {
     initLang();
+    // 首次用户交互时初始化 AudioContext
+    audio.init();
+    audio.playBGM('title');
     if (CONFIG.DEBUG) console.log('[Title] lang:', lang());
   }
 
@@ -21,7 +25,9 @@ export class TitleScene extends Scene {
     this._blink += dt;
     if (this._blink >= 0.5) { this._blink = 0; this._show = !this._show; }
     if (input.isKeyPressed('KeyL')) { lang(lang() === 'zh' ? 'en' : 'zh'); }
+    if (input.isKeyPressed('KeyM')) { audio.toggleMute(); }
     if (input.isAnyKeyPressed() || input.isMouseClicked()) {
+      audio.stopBGM();
       sceneManager.switch(new LoadingScene());
     }
   }

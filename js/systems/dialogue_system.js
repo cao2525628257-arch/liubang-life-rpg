@@ -1,5 +1,6 @@
 import { CONFIG, COLORS } from '../data/config.js';
 import { renderer } from '../engine/renderer.js';
+import { audio } from '../engine/audio_manager.js';
 
 /**
  * 对话框系统 — 打字机效果 + 选项菜单
@@ -22,6 +23,8 @@ export class DialogueSystem {
     this._finished = false;
     this._finishCD = 0; // 刚完成冷却，防止同帧Enter直接关
     this._speaker = '';
+    this._voiceType = 'default'; // NPC语气音类型
+    this._lastVoiceIdx = -1;     // 上次播放语气音时的charIndex
 
     /** 选项 */
     this._choices = [];
@@ -37,9 +40,10 @@ export class DialogueSystem {
    * 显示对话框
    * @param {string} text — 对话内容
    * @param {string} [speaker] — 说话人名字
+   * @param {string} [voiceType] — 语气音类型: default/female/warrior/scholar/elder/king/soldier/mystic
    * @returns {Promise<void>} 对话完成后 resolve
    */
-  show(text, speaker = '') {
+  show(text, speaker = '', voiceType = 'default') {
     this.active = true;
     this._fullText = text;
     this._displayedText = '';
@@ -47,6 +51,8 @@ export class DialogueSystem {
     this._charTimer = 0;
     this._finished = false;
     this._speaker = speaker;
+    this._voiceType = voiceType;
+    this._lastVoiceIdx = -1;
     this._choices = [];
 
     return new Promise((resolve) => {
@@ -83,6 +89,12 @@ export class DialogueSystem {
       while (this._charTimer >= this._charSpeed && this._charIndex < this._fullText.length) {
         this._charIndex++;
         this._charTimer -= this._charSpeed;
+        // 每2~3个可见字播放一次语气音
+        var visibleCount = this._fullText.substring(0, this._charIndex).replace(/[\s\n]/g, '').length;
+        if (visibleCount > 0 && visibleCount % 3 === 0 && this._lastVoiceIdx !== visibleCount) {
+          this._lastVoiceIdx = visibleCount;
+          audio.playVoice(this._voiceType);
+        }
       }
       this._displayedText = this._fullText.substring(0, this._charIndex);
 
@@ -114,6 +126,7 @@ export class DialogueSystem {
 
     // T/Enter/Space = 跳过或关闭
     if (ok('Enter') || ok('Space') || ok('KeyT')) {
+      audio.playSFX('dialogue');
       if (!this._finished) {
         // 还没打完 → 跳到结尾
         this._displayedText = this._fullText;

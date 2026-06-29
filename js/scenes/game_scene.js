@@ -10,6 +10,22 @@ import { Inventory } from '../systems/inventory.js';
 import { QuestManager, QUEST_STATE } from '../systems/quest_system.js';
 import { saveManager } from '../engine/save_manager.js';
 import { t, lang, initLang } from '../systems/localization.js';
+import { audio } from '../engine/audio_manager.js';
+
+// NPC 语气音类型映射
+var VOICE_MAP = {
+  xiao_he:'scholar', xiao_he2:'scholar', zhang_liang:'scholar', zhang_liang2:'scholar', zhang_liang3:'scholar',
+  chen_ping:'scholar', hanxin:'scholar', hanxin2:'scholar', hanxin3:'scholar', cao_shen:'scholar',
+  shusun_tong:'scholar', lou_jing:'scholar',
+  lvhou:'female', lvzhi:'female',
+  xiang_yu:'warrior', xiang_yu2:'warrior', xiang_zhuang:'warrior', peng_yue:'warrior',
+  fan_kuai:'brute', fan_kuai2:'brute', fan_kuai3:'brute',
+  ziying:'king', liu_bang_final:'king', liu_bang_last:'king', liu_bang_old:'king', zhang_han:'king',
+  fan_zeng:'elder', wangao:'elder', elder:'elder',
+  xiang_bo:'soldier', soldier1:'soldier',
+  white_snake:'mystic',
+  villager1:'merchant', villager2:'merchant', follower1:'merchant', boatman:'merchant', ji_xin:'merchant',
+};
 
 export class GameScene extends Scene {
   constructor(assets, saveData) {
@@ -42,6 +58,7 @@ export class GameScene extends Scene {
 
   enter() {
     initLang();
+    audio.init(); // 确保音频已初始化（直接从存档进游戏时）
     this._initQ();
     this._sMap(this.mapId || 'peixian');
     if (this._rst && this._sp) { this.px = this._sp.x; this.py = this._sp.y; this._rst = false; }
@@ -87,7 +104,7 @@ export class GameScene extends Scene {
       this.quests.advanceBy('reach', rw.quest); // 兼容旧quest id
       var q = this.quests._quests.get(rw.quest);
       if (q && q.state === QUEST_STATE.ACTIVE && q.isObjectiveDone) {
-        this.quests.complete(rw.quest);
+        this.quests.complete(rw.quest); audio.playSFX('quest');
         var rewards = this.quests.claimRewards(rw.quest);
         for (var ri = 0; ri < rewards.length; ri++) this.inventory.add(rewards[ri].id, rewards[ri].count);
         this.gold += rw.gold;
@@ -166,6 +183,17 @@ export class GameScene extends Scene {
       this._visited.add(id);
       this.dialogue.show(t('intro_'+id)||intros[id], t('map_'+id)||def.name);
     }
+
+    // 地图 BGM 切换
+    var bgmMap = {
+      peixian:'town', liu_home:'town', xianya:'town', jiusi:'town',
+      hanzhong:'town', changan:'town', peixian_return:'town',
+      mangdang:'field', mangdang_deep:'field', chencang:'field',
+      xianyang:'palace', xianyang_palace:'palace', hongmen:'palace',
+      hongmen_tent:'palace', changle_palace:'palace', wujiang:'palace',
+      pengcheng:'battle', xingyang:'battle', gaixia:'battle',
+    };
+    audio.playBGM(bgmMap[id] || 'town');
   }
 
   // ==================== UPDATE ====================
@@ -183,8 +211,9 @@ export class GameScene extends Scene {
       this._checkC();
       return;
     }
-    if (input.isKeyPressed('Escape')) { this.mO = true; this._ms = 0; this._sm = null; return; }
+    if (input.isKeyPressed('Escape')) { this.mO = true; this._ms = 0; this._sm = null; audio.playSFX('menu_open'); return; }
     if (input.isKeyPressed('KeyL')) { lang(lang()==='zh'?'en':'zh'); return; }
+    if (input.isKeyPressed('KeyM')) { var m = audio.toggleMute(); if (CONFIG.DEBUG) console.log('[Audio] 静音:', m); }
     this._mv(dt);
     this._ue(dt);
     if (this._pcd <= 0) this._cp();
@@ -250,7 +279,7 @@ export class GameScene extends Scene {
     for (var i = 0; i < this._md.portals.length; i++) {
       var p = this._md.portals[i];
       if (cx > p.x && cx < p.x+p.w && cy > p.y && cy < p.y+p.h) {
-        if (p.targetMap) {
+        if (p.targetMap) { audio.playSFX('portal');
           this._sMap(p.targetMap);
           if (p.targetX != null) this.px = p.targetX;
           if (p.targetY != null) this.py = p.targetY;
@@ -266,7 +295,7 @@ export class GameScene extends Scene {
       var c = this.items[i];
       if (c.ok) continue;
       if (Math.hypot(this.px+8-c.x, this.py+8-c.y) < 14) {
-        c.ok = true; this.inventory.add('herb');
+        c.ok = true; this.inventory.add('herb'); audio.playSFX('item');
         this.dialogue.show(t('gather_herb'), '');
       }
     }
@@ -290,7 +319,7 @@ export class GameScene extends Scene {
     ch.sort(function(){ return Math.random()-0.5; });
     return { q: a+' '+op+' '+b+' = ?', ans: ans, ch: ch.map(String) };
   }
-  _sc(e) { this.inCbt = true; this.cbtE = e; this._qz = this._genQ(e); this._qzS = 0; this._qzR = null; this._qzT = 0; }
+  _sc(e) { this.inCbt = true; this.cbtE = e; this._qz = this._genQ(e); this._qzS = 0; this._qzR = null; this._qzT = 0; audio.playSFX('enemy'); }
 
   _uc(dt) {
     if (!this.inCbt || !this.cbtE) return;
@@ -302,23 +331,23 @@ export class GameScene extends Scene {
         var ok = this._qz.ch[this._qzS] === String(this._qz.ans);
         if (ok) {
           var dm = this.atk + (Math.random()<0.1?this.atk:0);
-          e.hp -= dm; this._qzD = dm; this._qzR = 'hit';
-          if (e.hp <= 0) { e.ok = true; this._qzR = 'win'; this.gold += 5 + ~~(Math.random()*10);
+          e.hp -= dm; this._qzD = dm; this._qzR = 'hit'; audio.playSFX('hit');
+          if (e.hp <= 0) { e.ok = true; this._qzR = 'win'; audio.playSFX('win'); this.gold += 5 + ~~(Math.random()*10);
             var killRewards = { cc:{ quest:'take_xingyang', gold:60 } };
             var kr = killRewards[e.id];
             if (kr) {
               this.quests.advanceBy('kill', e.id);
               var kq = this.quests._quests.get(kr.quest);
               if (kq && kq.state === QUEST_STATE.ACTIVE && kq.isObjectiveDone) {
-                this.quests.complete(kr.quest); this.quests.claimRewards(kr.quest);
+                this.quests.complete(kr.quest); audio.playSFX('quest'); this.quests.claimRewards(kr.quest);
                 this.gold += kr.gold; this._showReward = '攻克荥阳！🎁 +60金';
               }
             }
           }
         } else {
           var dm2 = ~~(e.atk * (0.7+Math.random()*0.6));
-          this.hp -= dm2; this._qzD = dm2; this._qzR = 'miss';
-          if (this.hp <= 0) { this.hp = ~~(this.maxHp/3); this._qzR = 'lose'; }
+          this.hp -= dm2; this._qzD = dm2; this._qzR = 'miss'; audio.playSFX('miss');
+          if (this.hp <= 0) { this.hp = ~~(this.maxHp/3); this._qzR = 'lose'; audio.playSFX('lose'); }
         }
         this._qzT = 1.0;
       }
@@ -388,21 +417,21 @@ export class GameScene extends Scene {
     if (npc.id === 'xiao_he') {
       var q = this.quests._quests.get('escort');
       if (q && q.state === QUEST_STATE.AVAILABLE) {
-        await this.dialogue.show(t('dlg_xiao_he_start'), t('npc_xiao_he'));
+        await this.dialogue.show(t('dlg_xiao_he_start'), t('npc_xiao_he'), this._voiceFor(npc.id));
         var idx = await this._sc2([t('choice_accept'), t('choice_decline')]);
-        if (idx === 0) { this.quests.accept('escort'); await this.dialogue.show(t('dlg_xiao_he_quest'), t('npc_xiao_he')); }
+        if (idx === 0) { this.quests.accept('escort'); audio.playSFX('quest'); await this.dialogue.show(t('dlg_xiao_he_quest'), t('npc_xiao_he'), this._voiceFor(npc.id)); }
         return;
       }
-      if (q && q.state === QUEST_STATE.ACTIVE) { await this.dialogue.show(t('dlg_xiao_he_go')||'快去芒砀山深处！到了自会有收获。', t('npc_xiao_he')); return; }
-      if (q && q.state === 'claimed') { await this.dialogue.show(t('dlg_xiao_he_later')||'乱世将至，保重。', t('npc_xiao_he')); return; }
+      if (q && q.state === QUEST_STATE.ACTIVE) { await this.dialogue.show(t('dlg_xiao_he_go')||'快去芒砀山深处！到了自会有收获。', t('npc_xiao_he'), this._voiceFor(npc.id)); return; }
+      if (q && q.state === 'claimed') { await this.dialogue.show(t('dlg_xiao_he_later')||'乱世将至，保重。', t('npc_xiao_he'), this._voiceFor(npc.id)); return; }
     }
     // 白蛇任务——芒砀山刑徒给（斩完自动奖励）
     if (npc.id === 'follower1') {
       var sq = this.quests._quests.get('slay_snake');
       if (sq && sq.state === QUEST_STATE.AVAILABLE) {
-        await this.dialogue.show(t('dlg_snake_intro')||'前面有条大白蛇挡路！\n亭长若能斩杀此蛇，\n必能树立威望！', t('npc_prisoner'));
+        await this.dialogue.show(t('dlg_snake_intro')||'前面有条大白蛇挡路！\n亭长若能斩杀此蛇，\n必能树立威望！', t('npc_prisoner'), this._voiceFor(npc.id));
         var si = await this._sc2([t('choice_slay')||'好！斩蛇立威！', t('choice_around')||'绕道而行']);
-        if (si === 0) { this.quests.accept('slay_snake'); await this.dialogue.show(t('dlg_snake_go')||'那白蛇就在东边的路上！斩了它！', t('npc_prisoner')); }
+        if (si === 0) { this.quests.accept('slay_snake'); audio.playSFX('quest'); await this.dialogue.show(t('dlg_snake_go')||'那白蛇就在东边的路上！斩了它！', t('npc_prisoner'), this._voiceFor(npc.id)); }
         return;
       }
     }
@@ -422,52 +451,55 @@ export class GameScene extends Scene {
           coronation: ['dlg_coronation_go', 'choice_crown']
         };
         var qi = qInfos[qid2];
-        await this.dialogue.show(t(qi[0]), t('npc_'+npc.id)||npc.name);
+        await this.dialogue.show(t(qi[0]), t('npc_'+npc.id)||npc.name, this._voiceFor(npc.id));
         var idx2 = await this._sc2([t(qi[1]), t('choice_wait')||'等等']);
-        if (idx2 === 0) { this.quests.accept(qid2); }
+        if (idx2 === 0) { this.quests.accept(qid2); audio.playSFX('quest'); }
         return;
       }
     }
 
     if (npc.id === 'white_snake') {
-      await this.dialogue.show(t('dlg_snake'), t('npc_white_snake'));
+      await this.dialogue.show(t('dlg_snake'), t('npc_white_snake'), this._voiceFor(npc.id));
       if (this.charisma >= 8) {
         var i2 = await this._sc2([t('choice_slay_snake')||'⚔ 斩杀白蛇', t('choice_spirit')||'✨ 以赤帝之名感召']);
-        if (i2 === 1) { this.strategy += 1; this.charisma += 2; await this.dialogue.show(t('dlg_snake_spare')||'白蛇低首，化作白光消散。众人惊呼：赤帝之子！', ''); return; }
+        if (i2 === 1) { this.strategy += 1; this.charisma += 2; await this.dialogue.show(t('dlg_snake_spare')||'白蛇低首，化作白光消散。众人惊呼：赤帝之子！', '', this._voiceFor(npc.id)); return; }
       }
       var i3 = await this._sc2([t('choice_fight_5')||'⚔ 攻击！(需攻击≥5)', t('choice_retreat')||'🏃 暂避']);
       if (i3 === 0) {
-        if (this.atk < 5) { await this.dialogue.show(t('dlg_need_atk')||'攻击力不够！去完成押送任务获得赤霄剑。', ''); return; }
+        if (this.atk < 5) { await this.dialogue.show(t('dlg_need_atk')||'攻击力不够！去完成押送任务获得赤霄剑。', '', this._voiceFor(npc.id)); return; }
         this.quests.advanceBy('kill', 'white_snake');
         this.prestige += 3; this.gold += 100;
         this.inventory.add('blood');
-        await this.dialogue.show(t('dlg_white_snake_win'), '');
+        await this.dialogue.show(t('dlg_white_snake_win'), '', this._voiceFor(npc.id));
       }
       return;
     }
-    if (npc.id === 'ziying') { await this.dialogue.show(t('dlg_ziying')||npc.dialog, t('npc_ziying')); await this.dialogue.show(t('dlg_three_laws'), t('npc_ziying')); return; }
-    if (npc.id === 'xiang_yu') { await this.dialogue.show(t('dlg_xiang_yu')||npc.dialog, t('npc_xiang_yu')); await this.dialogue.show(t('dlg_hongmen_feast'), t('npc_xiang_yu')); return; }
-    if (npc.id === 'fan_zeng') { await this.dialogue.show(t('dlg_fan_zeng')||'（举玉玦示意三次，项羽不应）范增摔碎玉斗："竖子不足与谋！夺项王天下者，必沛公也！"', t('npc_fan_zeng')); return; }
-    if (npc.id === 'hanxin') { await this.dialogue.show(t('dlg_hanxin')||npc.dialog, t('npc_hanxin')); await this.dialogue.show(t('dlg_chencang'), t('npc_hanxin')); return; }
-    if (npc.id === 'xiang_yu2') { await this.dialogue.show(t('dlg_xiang_yu2')||npc.dialog, t('npc_xiang_yu2')); return; }
-    if (npc.id === 'liu_bang_final') { await this.dialogue.show(t('dlg_liu_bang_final')||npc.dialog, t('npc_liu_bang_final')); return; }
-    if (npc.id === 'liu_bang_last') { await this.dialogue.show(t('dlg_liu_bang_last')||npc.dialog, t('npc_liu_bang_last')); return; }
-    if (npc.id === 'lvhou') { await this.dialogue.show(t('dlg_lvhou')||npc.dialog, t('npc_lvhou')); return; }
+    if (npc.id === 'ziying') { await this.dialogue.show(t('dlg_ziying')||npc.dialog, t('npc_ziying'), this._voiceFor(npc.id)); await this.dialogue.show(t('dlg_three_laws'), t('npc_ziying'), this._voiceFor(npc.id)); return; }
+    if (npc.id === 'xiang_yu') { await this.dialogue.show(t('dlg_xiang_yu')||npc.dialog, t('npc_xiang_yu'), this._voiceFor(npc.id)); await this.dialogue.show(t('dlg_hongmen_feast'), t('npc_xiang_yu'), this._voiceFor(npc.id)); return; }
+    if (npc.id === 'fan_zeng') { await this.dialogue.show(t('dlg_fan_zeng')||'（举玉玦示意三次，项羽不应）范增摔碎玉斗："竖子不足与谋！夺项王天下者，必沛公也！"', t('npc_fan_zeng'), this._voiceFor(npc.id)); return; }
+    if (npc.id === 'hanxin') { await this.dialogue.show(t('dlg_hanxin')||npc.dialog, t('npc_hanxin'), this._voiceFor(npc.id)); await this.dialogue.show(t('dlg_chencang'), t('npc_hanxin'), this._voiceFor(npc.id)); return; }
+    if (npc.id === 'xiang_yu2') { await this.dialogue.show(t('dlg_xiang_yu2')||npc.dialog, t('npc_xiang_yu2'), this._voiceFor(npc.id)); return; }
+    if (npc.id === 'liu_bang_final') { await this.dialogue.show(t('dlg_liu_bang_final')||npc.dialog, t('npc_liu_bang_final'), this._voiceFor(npc.id)); return; }
+    if (npc.id === 'liu_bang_last') { await this.dialogue.show(t('dlg_liu_bang_last')||npc.dialog, t('npc_liu_bang_last'), this._voiceFor(npc.id)); return; }
+    if (npc.id === 'lvhou') { await this.dialogue.show(t('dlg_lvhou')||npc.dialog, t('npc_lvhou'), this._voiceFor(npc.id)); return; }
 
     var dk = {wangao:'dlg_wangao',villager1:'dlg_villager',villager2:'dlg_qin_citizen',fan_kuai:'dlg_fan_kuai',lvzhi:'dlg_lvzhi',cao_shen:'dlg_cao_shen',xiang_bo:'dlg_xiang_bo',soldier1:'dlg_chu_soldier',elder:'dlg_villager',fan_kuai2:'dlg_fan_kuai2',xiang_zhuang:'dlg_xiang_zhuang',xiao_he2:'dlg_xiao_he2',zhang_han:'dlg_zhang_han',fan_kuai3:'dlg_fan_kuai3',ji_xin:'dlg_ji_xin',peng_yue:'dlg_peng_yue',zhang_liang2:'dlg_zhang_liang2',boatman:'dlg_boatman',lou_jing:'dlg_lou_jing',zhang_liang3:'dlg_zhang_liang3',liu_bang_old:'dlg_liu_bang_old',shusun_tong:'dlg_shusun_tong'};
     var d = dk[npc.id];
     var sn = t('npc_'+npc.id) || npc.name;
-    await this.dialogue.show(d ? t(d) : (npc.dialog||'…'), sn);
+    await this.dialogue.show(d ? t(d) : (npc.dialog||'…'), sn, this._voiceFor(npc.id));
   }
+
+  /** 根据 NPC ID 获取语气音类型 */
+  _voiceFor(id) { return VOICE_MAP[id] || 'default'; }
 
   _sc2(choices) { this.dialogue.showChoices(choices); return new Promise(function(r){ this._pendingC = r; }.bind(this)); }
 
   // ==================== MENU ====================
   _um() {
     if (this._sm) { if (input.isKeyPressed('Escape')) this._sm = null; return; }
-    if (input.isKeyPressed('ArrowUp')) this._ms = Math.max(0, this._ms-1);
-    if (input.isKeyPressed('ArrowDown')) this._ms = Math.min(4, this._ms+1);
-    if (input.isKeyPressed('Enter')||input.isKeyPressed('Space')) this._ex();
+    if (input.isKeyPressed('ArrowUp')) { this._ms = Math.max(0, this._ms-1); audio.playSFX('menu_move'); }
+    if (input.isKeyPressed('ArrowDown')) { this._ms = Math.min(4, this._ms+1); audio.playSFX('menu_move'); }
+    if (input.isKeyPressed('Enter')||input.isKeyPressed('Space')) { audio.playSFX('menu_select'); this._ex(); }
     if (input.isKeyPressed('Escape')) this.mO = false;
   }
   _ex() {
@@ -585,6 +617,8 @@ export class GameScene extends Scene {
     renderer.drawUIText(t('map_'+this.mapId)||'', 10, 42, COLORS.GOLD, '9px monospace');
 
     renderer.drawUIText(lang()==='zh'?'L=EN':'L=中文', CONFIG.GAME_WIDTH-40, CONFIG.GAME_HEIGHT-28, '#555', '9px monospace');
+    var muteTxt = audio.muted ? '🔇 M' : '🔊 M';
+    renderer.drawUIText(muteTxt, CONFIG.GAME_WIDTH-40, CONFIG.GAME_HEIGHT-40, audio.muted ? '#f44' : '#555', '9px monospace');
     renderer.drawUIRect(0, CONFIG.GAME_HEIGHT-14, CONFIG.GAME_WIDTH, 14, 'rgba(0,0,0,0.5)');
     var nearN = this.npcs.some(function(n){ return Math.hypot(this.px-n.x, this.py-n.y)<32; }.bind(this));
     var nearE = this.enemies.some(function(e){ return !e.ok && Math.hypot(this.px+8-e.x-8, this.py+8-e.y-8)<32; }.bind(this));
