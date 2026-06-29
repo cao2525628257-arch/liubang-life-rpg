@@ -1,3 +1,5 @@
+import { renderer } from './renderer.js';
+
 /**
  * 输入管理器 — 键盘/鼠标状态追踪
  *
@@ -112,10 +114,9 @@ class Input {
       var gx = t.clientX, gy = t.clientY;
       if (this._canvas) {
         var rect = this._canvas.getBoundingClientRect();
-        var sx = parseInt(this._canvas.style.width) / 640 || 1;
-        var sy = parseInt(this._canvas.style.height) / 360 || 1;
-        gx = (t.clientX - rect.left) / sx;
-        gy = (t.clientY - rect.top) / sy;
+        var s = renderer.scale || 1;
+        gx = (t.clientX - rect.left) / s;
+        gy = (t.clientY - rect.top) / s;
       }
       var type = this._touchHitTest(gx, gy);
       if (!type) {
@@ -142,10 +143,9 @@ class Input {
       var gx = t.clientX, gy = t.clientY;
       if (this._canvas) {
         var rect = this._canvas.getBoundingClientRect();
-        var scaleX = parseInt(this._canvas.style.width) / 640 || 1;
-        var scaleY = parseInt(this._canvas.style.height) / 360 || 1;
-        gx = (t.clientX - rect.left) / scaleX;
-        gy = (t.clientY - rect.top) / scaleY;
+        var s = renderer.scale || 1;
+        gx = (t.clientX - rect.left) / s;
+        gy = (t.clientY - rect.top) / s;
       }
       if (type === 'dpad') { this._updateTouchDir(gx, gy); this._injectDirKeys(); }
       else if (type === 'a') {

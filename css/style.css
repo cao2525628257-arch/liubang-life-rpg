@@ -19,13 +19,18 @@ body {
 }
 
 #game {
-  /* Canvas 内部分辨率 640×360，CSS 整数倍放大 */
+  /* Canvas 内部分辨率 640×360，CSS 缩放 */
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 
-  /* 默认大小，JS 会在 resize 时调整为整数倍 */
+  /* 默认大小，JS 在 resize 时动态调整 */
   width: 640px;
   height: 360px;
+  max-width: 100vw;
+  max-height: 100vh;
+
+  /* 防止触屏默认行为 */
+  touch-action: none;
 
   /* 防止被选中、拖拽 */
   user-select: none;

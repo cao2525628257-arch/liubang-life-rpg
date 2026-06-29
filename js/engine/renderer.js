@@ -31,12 +31,12 @@ class Renderer {
     window.addEventListener('resize', () => this._handleResize());
   }
 
-  /** 计算并应用整数倍缩放，使画布尽量撑满窗口 */
+  /** 计算缩放比，使画布撑满窗口（小屏幕允许非整数缩放） */
   _handleResize() {
     const maxW = window.innerWidth;
     const maxH = window.innerHeight;
-    const scaleX = Math.floor(maxW / CONFIG.GAME_WIDTH) || 1;
-    const scaleY = Math.floor(maxH / CONFIG.GAME_HEIGHT) || 1;
+    const scaleX = maxW / CONFIG.GAME_WIDTH;
+    const scaleY = maxH / CONFIG.GAME_HEIGHT;
     this.scale = Math.min(scaleX, scaleY);
 
     this.canvas.style.width = `${CONFIG.GAME_WIDTH * this.scale}px`;
