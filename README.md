@@ -23,12 +23,15 @@
 | ← → | Switch options (battle / dialogue) |
 | Esc | Menu (Bag / Quest / Save / Title) |
 | L | Toggle Chinese / English |
+| M | Toggle Mute |
 
 ## Tech Stack
 
 - Canvas 2D, 640×360 pixel-perfect scaling
 - Vanilla ES Modules, zero dependencies, zero build
 - All sprites procedurally generated (`pixel_art_gen.js`)
+- Procedural chiptune BGM + SFX via Web Audio API (`audio_generator.js`)
+- Character voice blips (Undertale-style) during typewriter dialogue
 - Bilingual CN/EN, press L to toggle instantly
 
 ## Quick Start
@@ -55,7 +58,8 @@ my-game-html/
 │   │   ├── tilemap.js          # Tilemap + collision detection
 │   │   ├── entity.js           # Entity base class
 │   │   ├── asset_loader.js     # Async asset loading
-│   │   ├── audio_manager.js    # BGM / SFX (framework ready)
+│   │   ├── audio_manager.js    # Audio manager (BGM / SFX / voice / mute)
+│   │   ├── audio_generator.js   # Procedural chiptune + SFX via Web Audio API
 │   │   ├── save_manager.js     # localStorage save system
 │   │   └── pixel_art_gen.js    # All sprite generation code
 │   ├── scenes/                 # Scenes
@@ -107,6 +111,12 @@ update(dt):
 - Accept quests from NPCs (marked with `!`) → auto-complete on arrival → auto-reward
 - No need to return to NPC
 - 8 quests spanning 10 chapters
+
+### Audio System (Web Audio API)
+- **BGM**: 5 procedural chiptune tracks (town/field/palace/battle/title) with Chinese pentatonic scale melodies, auto-switched per map
+- **SFX**: 12 sound effects (menu/dialogue/battle/quest/item/portal)
+- **Voice Blips**: Undertale-style — each NPC type has a distinct voice (scholar/female/warrior/king/elder/mystic...), triggered every ~3 chars during typewriter dialogue
+- **M key**: Toggle mute, with HUD indicator
 
 ## How to Add Content
 
@@ -171,7 +181,6 @@ Game content is based on the following historical references:
 
 ## Known Issues
 
-- Audio system framework ready but no audio files included
 - No touch controls for mobile
 - `js/data/dialogues.js` has full 10-chapter dialogue data written but not yet wired to NPC interactions
 - Map data hardcoded in JS rather than managed as JSON files
@@ -197,12 +206,15 @@ Game content is based on the following historical references:
 | ← → | 战斗/选项中切换 |
 | Esc | 菜单（背包/任务/存档/返回标题） |
 | L | 中/English 切换 |
+| M | 切换静音 |
 
 ## 技术栈
 
 - Canvas 2D，640×360 像素完美缩放
 - 原生 ES Modules，零依赖、零构建
 - 所有素材代码生成（`pixel_art_gen.js`）
+- Web Audio API 程序化复古芯片 BGM + SFX（`audio_generator.js`）
+- 角色语气音（Undertale 风格），打字时随 NPC 类型变化
 - 中英双语，L键即时切换
 
 ## 启动
@@ -229,7 +241,8 @@ my-game-html/
 │   │   ├── tilemap.js          # 瓦片地图+碰撞检测
 │   │   ├── entity.js           # 实体基类
 │   │   ├── asset_loader.js     # 异步资源加载
-│   │   ├── audio_manager.js    # BGM/SFX（框架就绪）
+│   │   ├── audio_manager.js    # 音频管理（BGM/SFX/语气音/静音）
+│   │   ├── audio_generator.js   # Web Audio API 程序化芯片音效
 │   │   ├── save_manager.js     # localStorage存档
 │   │   └── pixel_art_gen.js    # 所有精灵代码生成
 │   ├── scenes/                 # 场景
@@ -281,6 +294,12 @@ update(dt):
 - NPC 接任务（头顶 `!`）→ 到达目的地自动完成+自动发奖
 - 无需回头交任务
 - 8个任务覆盖全10章
+
+### 音频系统（Web Audio API）
+- **BGM**：5首程序化芯片音乐（城镇/野外/宫殿/战斗/标题），五声音阶旋律，按地图自动切换
+- **SFX**：12种音效（菜单/对话/战斗/任务/物品/传送门）
+- **语气音**：Undertale 风格——每个 NPC 类型有独特声音（文臣/女性/武将/帝王/长者/神秘...），打字时每~3字触发
+- **M 键**：切换静音，HUD 有状态指示
 
 ## 如何添加内容
 
@@ -345,7 +364,6 @@ update(dt):
 
 ## 已知问题
 
-- 音效系统框架就绪但无音频文件
 - 手机端无触屏摇杆
 - `js/data/dialogues.js` 全10章对话数据已写好但未接入 NPC 交互
 - 地图数据在 JS 中手写，非 JSON 文件管理
