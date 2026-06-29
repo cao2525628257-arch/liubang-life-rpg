@@ -11,6 +11,7 @@ import { QuestManager, QUEST_STATE } from '../systems/quest_system.js';
 import { saveManager } from '../engine/save_manager.js';
 import { t, lang, initLang } from '../systems/localization.js';
 import { audio } from '../engine/audio_manager.js';
+import { getNPCDialogue } from '../data/dialogue_map.js';
 
 // NPC 语气音类型映射
 var VOICE_MAP = {
@@ -40,6 +41,7 @@ export class GameScene extends Scene {
 
     this.hp = 30; this.maxHp = 30; this.atk = 5;
     this.prestige = 5; this.strategy = 6; this.charisma = 8; this.gold = 0;
+    this.xp = 0; this.level = 1;
 
     this.mapId = 'peixian'; this._md = null;
     this.px = 0; this.py = 0; this.speed = 80;
@@ -53,6 +55,14 @@ export class GameScene extends Scene {
 
     this.mO = false; this._ms = 0; this._sm = null;
     this._showReward = null; this._rst = !!saveData;
+    // 地图过场淡入淡出
+    this._fadeAlpha = 0; this._fadeState = 'none'; this._fadeTarget = null;
+    // 战斗粒子
+    this._particles = [];
+    // 触屏设备
+    this._isTouch = ('ontouchstart' in window);
+    // 章节对话已显示记录
+    this._dlgRichShown = new Set();
     if (saveData) this._restore(saveData);
   }
 
@@ -109,7 +119,7 @@ export class GameScene extends Scene {
         for (var ri = 0; ri < rewards.length; ri++) this.inventory.add(rewards[ri].id, rewards[ri].count);
         this.gold += rw.gold;
         if (rw.atk) this.atk += rw.atk;
-        if (rw.item) this.inventory.add(rw.item);
+        if (rw.item) { this.inventory.add(rw.item); this.inventory.equip(rw.item); }
         if (rw.msg) this.dialogue.show(rw.msg, '');
       }
     }
@@ -198,6 +208,28 @@ export class GameScene extends Scene {
 
   // ==================== UPDATE ====================
   update(dt) {
+    // 地图过场淡入淡出
+    if (this._fadeState === 'fadeOut') {
+      this._fadeAlpha += dt * 3.0;
+      if (this._fadeAlpha >= 1.0) {
+        this._fadeAlpha = 1.0;
+        var tgt = this._fadeTarget;
+        if (tgt) {
+          this._sMap(tgt.map);
+          if (tgt.x != null) this.px = tgt.x;
+          if (tgt.y != null) this.py = tgt.y;
+        }
+        this._fadeState = 'fadeIn';
+      }
+      return;
+    }
+    if (this._fadeState === 'fadeIn') {
+      this._fadeAlpha -= dt * 3.0;
+      if (this._fadeAlpha <= 0) { this._fadeAlpha = 0; this._fadeState = 'none'; this._fadeTarget = null; }
+      return;
+    }
+    renderer.updateShake(dt);
+    this._updateParticles(dt);
     if (this._pcd > 0) this._pcd -= dt;
     if (this.mO) { this._um(); return; }
     if (this.inCbt) { this._uc(dt); return; }
@@ -263,6 +295,7 @@ export class GameScene extends Scene {
   _ue(dt) {
     for (var i = 0; i < this.enemies.length; i++) {
       var e = this.enemies[i];
+      if (e.flashTimer > 0) e.flashTimer -= dt;
       if (e.ok || !e.pat || e.pat.length < 2) continue;
       var tgt = e.pat[e.pi];
       var dx = tgt.x - e.x, dy = tgt.y - e.y, ds = Math.hypot(dx, dy);
@@ -280,9 +313,8 @@ export class GameScene extends Scene {
       var p = this._md.portals[i];
       if (cx > p.x && cx < p.x+p.w && cy > p.y && cy < p.y+p.h) {
         if (p.targetMap) { audio.playSFX('portal');
-          this._sMap(p.targetMap);
-          if (p.targetX != null) this.px = p.targetX;
-          if (p.targetY != null) this.py = p.targetY;
+          this._fadeState = 'fadeOut'; this._fadeAlpha = 0;
+          this._fadeTarget = { map: p.targetMap, x: p.targetX, y: p.targetY };
         }
         return;
       }
@@ -321,6 +353,60 @@ export class GameScene extends Scene {
   }
   _sc(e) { this.inCbt = true; this.cbtE = e; this._qz = this._genQ(e); this._qzS = 0; this._qzR = null; this._qzT = 0; audio.playSFX('enemy'); }
 
+  _effAtk() { return this.atk + this.inventory.getEquipBonus('atk'); }
+
+  _xpForLevel(lv) { return lv * 40 + 10; }
+
+  _gainXP(amount) {
+    this.xp += amount;
+    var needed = this._xpForLevel(this.level);
+    while (this.xp >= needed) {
+      this.xp -= needed;
+      this.level++;
+      this.maxHp += 5; this.hp = this.maxHp;
+      this.atk += 1;
+      audio.playSFX('win');
+      this._showReward = '🎉 ' + (t('level_up')||'升级！').replace('{0}', this.level) + '\nHP+' + (this.level*5-5) + ' ATK+' + (this.level-1);
+      needed = this._xpForLevel(this.level);
+    }
+  }
+
+  // 战斗胜利粒子
+  _spawnParticles(e) {
+    for (var i = 0; i < 10; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var speed = 30 + Math.random() * 60;
+      this._particles.push({
+        x: e.x + 8, y: e.y + 8,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 25,
+        life: 0.6, maxLife: 0.6,
+        color: i < 7 ? '#ffd700' : '#ffaa00',
+        size: 2 + (i % 3)
+      });
+    }
+  }
+
+  _updateParticles(dt) {
+    for (var i = this._particles.length - 1; i >= 0; i--) {
+      var p = this._particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 80 * dt;
+      p.life -= dt;
+      if (p.life <= 0) this._particles.splice(i, 1);
+    }
+  }
+
+  _renderParticles(ctx) {
+    for (var i = 0; i < this._particles.length; i++) {
+      var p = this._particles[i];
+      ctx.globalAlpha = p.life / p.maxLife;
+      renderer.drawRect(p.x, p.y, p.size, p.size, p.color);
+      ctx.globalAlpha = 1;
+    }
+  }
+
   _uc(dt) {
     if (!this.inCbt || !this.cbtE) return;
     var e = this.cbtE;
@@ -330,9 +416,9 @@ export class GameScene extends Scene {
       if (input.isKeyPressed('Enter')||input.isKeyPressed('Space')) {
         var ok = this._qz.ch[this._qzS] === String(this._qz.ans);
         if (ok) {
-          var dm = this.atk + (Math.random()<0.1?this.atk:0);
-          e.hp -= dm; this._qzD = dm; this._qzR = 'hit'; audio.playSFX('hit');
-          if (e.hp <= 0) { e.ok = true; this._qzR = 'win'; audio.playSFX('win'); this.gold += 5 + ~~(Math.random()*10);
+          var dm = this._effAtk() + (Math.random()<0.1?this.atk:0);
+          e.hp -= dm; this._qzD = dm; this._qzR = 'hit'; audio.playSFX('hit'); renderer.triggerShake(3,0.15); e.flashTimer=0.15;
+          if (e.hp <= 0) { e.ok = true; this._qzR = 'win'; audio.playSFX('win'); renderer.triggerShake(8,0.4); this._spawnParticles(e); this.gold += 5 + ~~(Math.random()*10); this._gainXP(e.maxHp + 5 + ~~(Math.random()*11));
             var killRewards = { cc:{ quest:'take_xingyang', gold:60 } };
             var kr = killRewards[e.id];
             if (kr) {
@@ -346,8 +432,8 @@ export class GameScene extends Scene {
           }
         } else {
           var dm2 = ~~(e.atk * (0.7+Math.random()*0.6));
-          this.hp -= dm2; this._qzD = dm2; this._qzR = 'miss'; audio.playSFX('miss');
-          if (this.hp <= 0) { this.hp = ~~(this.maxHp/3); this._qzR = 'lose'; audio.playSFX('lose'); }
+          this.hp -= dm2; this._qzD = dm2; this._qzR = 'miss'; audio.playSFX('miss'); renderer.triggerShake(4,0.2);
+          if (this.hp <= 0) { this.hp = ~~(this.maxHp/3); this._qzR = 'lose'; audio.playSFX('lose'); renderer.triggerShake(6,0.3); }
         }
         this._qzT = 1.0;
       }
@@ -414,6 +500,18 @@ export class GameScene extends Scene {
   }
 
   async _tn(npc) {
+    // 优先显示章节对话（首次交互）
+    var richKey = this.mapId + ':' + npc.id;
+    if (!this._dlgRichShown.has(richKey)) {
+      var richDlg = getNPCDialogue(this.mapId, npc.id);
+      if (richDlg) {
+        this._dlgRichShown.add(richKey);
+        var rsn = t('npc_'+npc.id) || richDlg.speaker;
+        await this.dialogue.show(richDlg.text, rsn, this._voiceFor(npc.id));
+        // fallthrough: 继续走任务/通用逻辑
+      }
+    }
+
     if (npc.id === 'xiao_he') {
       var q = this.quests._quests.get('escort');
       if (q && q.state === QUEST_STATE.AVAILABLE) {
@@ -483,6 +581,18 @@ export class GameScene extends Scene {
     if (npc.id === 'liu_bang_last') { await this.dialogue.show(t('dlg_liu_bang_last')||npc.dialog, t('npc_liu_bang_last'), this._voiceFor(npc.id)); return; }
     if (npc.id === 'lvhou') { await this.dialogue.show(t('dlg_lvhou')||npc.dialog, t('npc_lvhou'), this._voiceFor(npc.id)); return; }
 
+    // 属性检定分支
+    if (npc.id === 'zhang_liang' && this.strategy >= 8) {
+      var ci1 = await this._sc2([t('choice_strategy_ask')||'请教谋略', t('choice_leave')||'就此别过']);
+      if (ci1 === 0) { this.prestige += 1; await this.dialogue.show(t('dlg_zhang_liang_stat')||'张良微微点头："沛公果然不凡。" 👑+1', t('npc_zhang_liang'), this._voiceFor(npc.id)); }
+      return;
+    }
+    if (npc.id === 'xiang_bo' && this.prestige >= 8) {
+      var ci2 = await this._sc2([t('choice_thanks_token')||'感谢通风报信', t('choice_nod')||'记在心里']);
+      if (ci2 === 0) { this.inventory.add('token'); this.inventory.add('token'); await this.dialogue.show(t('dlg_xiang_bo_stat')||'项伯悄悄塞给你两块秦军令牌。"拿着，或许有用。" 🎖️x2', t('npc_xiang_bo'), this._voiceFor(npc.id)); }
+      return;
+    }
+
     var dk = {wangao:'dlg_wangao',villager1:'dlg_villager',villager2:'dlg_qin_citizen',fan_kuai:'dlg_fan_kuai',lvzhi:'dlg_lvzhi',cao_shen:'dlg_cao_shen',xiang_bo:'dlg_xiang_bo',soldier1:'dlg_chu_soldier',elder:'dlg_villager',fan_kuai2:'dlg_fan_kuai2',xiang_zhuang:'dlg_xiang_zhuang',xiao_he2:'dlg_xiao_he2',zhang_han:'dlg_zhang_han',fan_kuai3:'dlg_fan_kuai3',ji_xin:'dlg_ji_xin',peng_yue:'dlg_peng_yue',zhang_liang2:'dlg_zhang_liang2',boatman:'dlg_boatman',lou_jing:'dlg_lou_jing',zhang_liang3:'dlg_zhang_liang3',liu_bang_old:'dlg_liu_bang_old',shusun_tong:'dlg_shusun_tong'};
     var d = dk[npc.id];
     var sn = t('npc_'+npc.id) || npc.name;
@@ -498,7 +608,7 @@ export class GameScene extends Scene {
   _um() {
     if (this._sm) { if (input.isKeyPressed('Escape')) this._sm = null; return; }
     if (input.isKeyPressed('ArrowUp')) { this._ms = Math.max(0, this._ms-1); audio.playSFX('menu_move'); }
-    if (input.isKeyPressed('ArrowDown')) { this._ms = Math.min(4, this._ms+1); audio.playSFX('menu_move'); }
+    if (input.isKeyPressed('ArrowDown')) { this._ms = Math.min(5, this._ms+1); audio.playSFX('menu_move'); }
     if (input.isKeyPressed('Enter')||input.isKeyPressed('Space')) { audio.playSFX('menu_select'); this._ex(); }
     if (input.isKeyPressed('Escape')) this.mO = false;
   }
@@ -508,16 +618,25 @@ export class GameScene extends Scene {
       case 1: this._sm = 'inv'; break;
       case 2: this._sm = 'qst'; break;
       case 3: this._sv(); this.mO = false; break;
-      case 4: this.mO = false; this._gt();
+      case 4: this._heal(); break;
+      case 5: this.mO = false; this._gt();
     }
   }
-  _sv() { saveManager.save(0, {mapId:this.mapId,px:this.px,py:this.py,hp:this.hp,maxHp:this.maxHp,atk:this.atk,prestige:this.prestige,strategy:this.strategy,charisma:this.charisma,gold:this.gold,inventory:this.inventory.serialize(),quests:this.quests.serialize(),timestamp:Date.now()}); }
+  _heal() {
+    if (this.hp >= this.maxHp) { this.dialogue.show(t('hp_full')||'HP已满！', ''); return; }
+    if (this.gold < 20) { this.dialogue.show(t('no_gold')||'金币不够！需要20金。', ''); return; }
+    this.gold -= 20; this.hp = Math.min(this.maxHp, this.hp + 10);
+    this.dialogue.show(t('restored')||'休息了一下，恢复10HP！', '');
+  }
+  _sv() { saveManager.save(0, {mapId:this.mapId,px:this.px,py:this.py,hp:this.hp,maxHp:this.maxHp,atk:this.atk,prestige:this.prestige,strategy:this.strategy,charisma:this.charisma,gold:this.gold,xp:this.xp,level:this.level,inventory:this.inventory.serialize(),quests:this.quests.serialize(),dlgRich:Array.from(this._dlgRichShown),timestamp:Date.now()}); }
   async _gt() { var m = await import('./title_scene.js'); sceneManager.switch(new m.TitleScene()); }
   _restore(d) {
     this.mapId = d.mapId||'peixian'; this._sp = {x:d.px||0, y:d.py||0};
-    if (d.hp) this.hp = d.hp; if (d.atk) this.atk = d.atk;
+    if (d.hp) this.hp = d.hp; if (d.maxHp) this.maxHp = d.maxHp; if (d.atk) this.atk = d.atk;
     if (d.prestige) this.prestige = d.prestige; if (d.strategy) this.strategy = d.strategy; if (d.charisma) this.charisma = d.charisma; if (d.gold) this.gold = d.gold;
+    if (d.xp !== undefined) this.xp = d.xp; if (d.level) this.level = d.level;
     if (d.inventory) this.inventory.deserialize(d.inventory); if (d.quests) this.quests.deserialize(d.quests);
+    if (d.dlgRich) this._dlgRichShown = new Set(d.dlgRich);
   }
 
   // ==================== RENDER ====================
@@ -562,6 +681,8 @@ export class GameScene extends Scene {
       if (e.ok) continue;
       if (e.sp) renderer.drawImage(e.sp, e.x, e.y, 16, 16);
       else renderer.drawRect(e.x, e.y, 16, 16, '#cc2222');
+      // 受击闪烁
+      if (e.flashTimer > 0) { renderer.drawRect(e.x, e.y, 16, 16, '#ffffff'); }
       var er = e.hp/e.maxHp;
       renderer.drawRect(e.x-2, e.y-6, 20, 3, '#000');
       renderer.drawRect(e.x-2, e.y-6, Math.floor(20*er), 3, er>0.5?'#4f4':er>0.25?'#ff0':'#f00');
@@ -585,11 +706,49 @@ export class GameScene extends Scene {
       if (qm) renderer.drawUIText(qm, n.x+4, n.y-16, qm==='!'?'#ffd700':qm==='?'?'#4f4':'#888', 'bold 14px monospace');
     }
 
+    this._renderParticles(ctx);
     this._dp(ctx);
     this._dh(ctx);
     this.dialogue.render(ctx);
     if (this.mO) this._dm(ctx);
     if (this.inCbt) this._rc(ctx);
+    // 地图过场遮罩
+    if (this._fadeAlpha > 0) {
+      renderer.drawUIRect(0, 0, CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT, 'rgba(0,0,0,' + this._fadeAlpha.toFixed(2) + ')');
+    }
+    // 触屏虚拟按键
+    if (this._isTouch) this._renderTouchCtl(ctx);
+  }
+
+  _renderTouchCtl(ctx) {
+    var a = 0.25;
+    // 方向键底盘
+    renderer.drawUIRect(input.dpadCX - input.dpadR, input.dpadCY - input.dpadR, input.dpadR*2, input.dpadR*2, 'rgba(255,255,255,'+(a*0.4)+')');
+    ctx.beginPath(); ctx.arc(input.dpadCX, input.dpadCY, input.dpadR, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,255,255,' + a + ')'; ctx.lineWidth = 1.5; ctx.stroke();
+    // 方向三角
+    var cx = input.dpadCX, cy = input.dpadCY, dirs = [{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}];
+    for (var d = 0; d < 4; d++) {
+      var dx = dirs[d].x, dy = dirs[d].y;
+      var active = input._touchDir.x === dx && input._touchDir.y === dy;
+      ctx.fillStyle = active ? 'rgba(255,215,0,'+(a*3)+')' : 'rgba(255,255,255,'+(a*0.6)+')';
+      ctx.beginPath();
+      if (dy === -1) { ctx.moveTo(cx-6,cy-18); ctx.lineTo(cx+6,cy-18); ctx.lineTo(cx,cy-28); }
+      else if (dy === 1) { ctx.moveTo(cx-6,cy+18); ctx.lineTo(cx+6,cy+18); ctx.lineTo(cx,cy+28); }
+      else if (dx === -1) { ctx.moveTo(cx-18,cy-6); ctx.lineTo(cx-18,cy+6); ctx.lineTo(cx-28,cy); }
+      else { ctx.moveTo(cx+18,cy-6); ctx.lineTo(cx+18,cy+6); ctx.lineTo(cx+28,cy); }
+      ctx.closePath(); ctx.fill();
+    }
+    // A按钮
+    ctx.beginPath(); ctx.arc(input.btnAX, input.btnAY, input.btnR, 0, Math.PI*2);
+    ctx.fillStyle = input._touchBtn.A ? 'rgba(100,200,255,'+(a*4)+')' : 'rgba(100,180,255,'+a+')';
+    ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,'+(a*0.6)+')'; ctx.lineWidth = 1; ctx.stroke();
+    renderer.drawUIText('A', input.btnAX-5, input.btnAY+5, '#fff', 'bold 12px monospace');
+    // B按钮
+    ctx.beginPath(); ctx.arc(input.btnBX, input.btnBY, input.btnR, 0, Math.PI*2);
+    ctx.fillStyle = input._touchBtn.B ? 'rgba(255,130,130,'+(a*4)+')' : 'rgba(255,150,150,'+a+')';
+    ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,'+(a*0.6)+')'; ctx.lineWidth = 1; ctx.stroke();
+    renderer.drawUIText('B', input.btnBX-5, input.btnBY+5, '#fff', 'bold 12px monospace');
   }
 
   _qm(id) {
@@ -611,10 +770,19 @@ export class GameScene extends Scene {
   }
 
   _dh(ctx) {
-    renderer.drawUIRect(4, 4, 160, 46, 'rgba(0,0,0,0.6)');
-    renderer.drawUIText(`HP ${this.hp}/${this.maxHp}  ⚔${this.atk}`, 10, 16, '#fff', '10px monospace');
-    renderer.drawUIText(`👑${this.prestige} 🧠${this.strategy} 💬${this.charisma} 🪙${this.gold}`, 10, 28, '#aaa', '9px monospace');
-    renderer.drawUIText(t('map_'+this.mapId)||'', 10, 42, COLORS.GOLD, '9px monospace');
+    renderer.drawUIRect(4, 4, 160, 58, 'rgba(0,0,0,0.6)');
+    var effAtk = this._effAtk();
+    var atkStr = '⚔'+effAtk;
+    if (this.inventory.equipped.weapon) atkStr += '⚔';
+    renderer.drawUIText('Lv.'+this.level+' HP '+this.hp+'/'+this.maxHp+' '+atkStr, 10, 16, '#fff', '10px monospace');
+    renderer.drawUIText('👑'+this.prestige+' 🧠'+this.strategy+' 💬'+this.charisma+' 🪙'+this.gold, 10, 28, '#aaa', '9px monospace');
+    var needed = this._xpForLevel(this.level);
+    renderer.drawUIText('XP '+this.xp+'/'+needed, 10, 40, '#8af', '8px monospace');
+    // XP条
+    var xpRatio = Math.min(1, this.xp / needed);
+    renderer.drawUIRect(10, 48, 140, 4, '#222');
+    if (xpRatio > 0) renderer.drawUIRect(10, 48, Math.floor(140*xpRatio), 4, '#48f');
+    renderer.drawUIText(t('map_'+this.mapId)||'', 10, 58, COLORS.GOLD, '9px monospace');
 
     renderer.drawUIText(lang()==='zh'?'L=EN':'L=中文', CONFIG.GAME_WIDTH-40, CONFIG.GAME_HEIGHT-28, '#555', '9px monospace');
     var muteTxt = audio.muted ? '🔇 M' : '🔊 M';
@@ -639,7 +807,7 @@ export class GameScene extends Scene {
     renderer.drawUIText(t('menu'), px+pw/2-26, py+18, COLORS.GOLD, 'bold 13px monospace');
     renderer.drawUIText('────────', px+20, py+46, '#444', '9px monospace');
     var ms = this._ms;
-    ['resume','inventory','quests','save','back_title'].forEach(function(k, i){
+    ['resume','inventory','quests','save','rest_heal','back_title'].forEach(function(k, i){
       var iy = py+60+i*30;
       renderer.drawUIText((i===ms?'▶ ':'  ')+t(k), px+18, iy, i===ms?COLORS.GOLD:COLORS.WHITE, '12px monospace');
     });

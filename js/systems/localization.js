@@ -332,6 +332,21 @@ const STRINGS = {
   // ===== 采集 =====
   gather_herb:      { zh: '采集到一株草药！',    en: 'Found a herb!' },
   gather_nothing:   { zh: '这里什么也没有。',    en: 'Nothing here.' },
+
+  // ===== 成长系统 =====
+  level_up:         { zh: '等级提升！Lv.{0}',    en: 'Level Up! Lv.{0}' },
+  rest_heal:        { zh: '休息恢复 (20金)',     en: 'Rest & Heal (20G)' },
+  hp_full:          { zh: 'HP已满，不需要休息。', en: 'HP is already full.' },
+  no_gold:          { zh: '金币不够！需要20金。', en: 'Not enough gold! Need 20G.' },
+  restored:         { zh: '休息了一下，恢复了10HP！', en: 'Rested, recovered 10 HP!' },
+
+  // ===== 属性检定 =====
+  choice_strategy_ask: { zh: '请教谋略',         en: 'Ask for strategy advice' },
+  choice_leave:        { zh: '就此别过',         en: 'Take my leave' },
+  choice_thanks_token: { zh: '感谢先生！',       en: 'Thank you, sir!' },
+  choice_nod:          { zh: '记在心里',         en: 'I will remember this' },
+  dlg_zhang_liang_stat:{ zh: '张良微微点头："沛公果然不凡，\n天下大事可谋矣。"  👑+1', en: 'Zhang Liang nods: "You are indeed remarkable. The realm can be won." 👑+1' },
+  dlg_xiang_bo_stat:   { zh: '项伯悄悄塞给你两块令牌。\n"拿着，或许有用。"  🎖️x2', en: 'Xiang Bo slips you two tokens. "Take these." 🎖️x2' },
 };
 
 // 需要参数化的字符串

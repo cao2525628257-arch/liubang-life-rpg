@@ -21,6 +21,12 @@ class Renderer {
     this.cameraX = 0;
     this.cameraY = 0;
 
+    // 摄像机震动
+    this.shakeX = 0;
+    this.shakeY = 0;
+    this.shakeTime = 0;
+    this.shakeIntensity = 0;
+
     this._handleResize();
     window.addEventListener('resize', () => this._handleResize());
   }
@@ -55,22 +61,22 @@ class Renderer {
   /* ====== 绘制辅助（自动减去摄像机偏移） ====== */
 
   drawImage(image, x, y, width, height) {
-    this.ctx.drawImage(image, x - this.cameraX, y - this.cameraY, width, height);
+    this.ctx.drawImage(image, x - this.cameraX + this.shakeX, y - this.cameraY + this.shakeY, width, height);
   }
 
   drawImageCropped(image, sx, sy, sw, sh, dx, dy, dw, dh) {
-    this.ctx.drawImage(image, sx, sy, sw, sh, dx - this.cameraX, dy - this.cameraY, dw, dh);
+    this.ctx.drawImage(image, sx, sy, sw, sh, dx - this.cameraX + this.shakeX, dy - this.cameraY + this.shakeY, dw, dh);
   }
 
   drawRect(x, y, w, h, color) {
     this.ctx.fillStyle = color;
-    this.ctx.fillRect(x - this.cameraX, y - this.cameraY, w, h);
+    this.ctx.fillRect(x - this.cameraX + this.shakeX, y - this.cameraY + this.shakeY, w, h);
   }
 
   drawText(text, x, y, color = '#ffffff', font = '12px monospace') {
     this.ctx.fillStyle = color;
     this.ctx.font = font;
-    this.ctx.fillText(text, x - this.cameraX, y - this.cameraY);
+    this.ctx.fillText(text, x - this.cameraX + this.shakeX, y - this.cameraY + this.shakeY);
   }
 
   /* ====== UI 绘制（不受摄像机影响） ====== */
@@ -102,6 +108,25 @@ class Renderer {
     const targetCamY = targetY - CONFIG.GAME_HEIGHT / 2;
     this.cameraX += (targetCamX - this.cameraX) * lerpFactor;
     this.cameraY += (targetCamY - this.cameraY) * lerpFactor;
+  }
+
+  /** 触发摄像机震动 */
+  triggerShake(intensity, duration) {
+    this.shakeIntensity = intensity;
+    this.shakeTime = duration;
+  }
+
+  /** 每帧更新震动状态（由 game_scene 调用） */
+  updateShake(dt) {
+    if (this.shakeTime > 0) {
+      this.shakeX = (Math.random() - 0.5) * 2 * this.shakeIntensity;
+      this.shakeY = (Math.random() - 0.5) * 2 * this.shakeIntensity;
+      this.shakeTime -= dt;
+      this.shakeIntensity *= 0.88; // 衰减
+      if (this.shakeTime <= 0) { this.shakeX = 0; this.shakeY = 0; this.shakeIntensity = 0; }
+    } else {
+      this.shakeX = 0; this.shakeY = 0;
+    }
   }
 }
 

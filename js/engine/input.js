@@ -22,6 +22,18 @@ class Input {
 
     /** @type {HTMLCanvasElement | null} */
     this._canvas = null;
+
+    // 触屏虚拟按键
+    /** @type {Map<number, string>} touchId → 'dpad'|'a'|'b' */
+    this._touchMap = new Map();
+    /** @type {{x:number,y:number}} 方向键方向 */
+    this._touchDir = { x: 0, y: 0 };
+    /** @type {{A:boolean,B:boolean}} 按钮状态 */
+    this._touchBtn = { A: false, B: false };
+    /** 触屏控件区域（游戏坐标） */
+    this.dpadCX = 65; this.dpadCY = 275; this.dpadR = 42;
+    this.btnAX = 565; this.btnAY = 275; this.btnR = 20;
+    this.btnBX = 520; this.btnBY = 310; this.btnR = 18;
   }
 
   /** 绑定事件到 canvas */
@@ -48,11 +60,109 @@ class Input {
     canvas.addEventListener('mouseup', () => { this._mouseDown = false; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
+    // 触屏事件
+    var self = this;
+    canvas.addEventListener('touchstart', function(e) { e.preventDefault(); self._onTouchStart(e); }, {passive: false});
+    canvas.addEventListener('touchmove', function(e) { e.preventDefault(); self._onTouchMove(e); }, {passive: false});
+    canvas.addEventListener('touchend', function(e) { self._onTouchEnd(e); });
+    canvas.addEventListener('touchcancel', function(e) { self._onTouchEnd(e); });
+
     // 让 canvas 可聚焦，才能接收键盘事件
     canvas.tabIndex = 0;
     canvas.focus();
     // 点击 canvas 时自动聚焦
     canvas.addEventListener('click', () => canvas.focus());
+  }
+
+  _touchHitTest(gx, gy) {
+    // 方向键
+    var ddx = gx - this.dpadCX, ddy = gy - this.dpadCY;
+    if (Math.hypot(ddx, ddy) < this.dpadR) return 'dpad';
+    // A按钮
+    if (Math.hypot(gx - this.btnAX, gy - this.btnAY) < this.btnR) return 'a';
+    // B按钮
+    if (Math.hypot(gx - this.btnBX, gy - this.btnBY) < this.btnR) return 'b';
+    return null;
+  }
+
+  _updateTouchDir(gx, gy) {
+    var dx = gx - this.dpadCX, dy = gy - this.dpadCY;
+    var dist = Math.hypot(dx, dy);
+    if (dist < 12) { this._touchDir.x = 0; this._touchDir.y = 0; return; }
+    var angle = Math.atan2(dy, dx);
+    if (angle > -Math.PI*0.75 && angle <= -Math.PI*0.25) this._touchDir = {x:0,y:-1};
+    else if (angle > -Math.PI*0.25 && angle <= Math.PI*0.25) this._touchDir = {x:1,y:0};
+    else if (angle > Math.PI*0.25 && angle <= Math.PI*0.75) this._touchDir = {x:0,y:1};
+    else this._touchDir = {x:-1,y:0};
+  }
+
+  _onTouchStart(e) {
+    var touches = e.changedTouches;
+    for (var i = 0; i < touches.length; i++) {
+      var t = touches[i];
+      var pos = {x: t.clientX, y: t.clientY};
+      if (this._canvas) pos = {x: (t.clientX - this._canvas.getBoundingClientRect().left) / (this._canvas.style.width ? parseInt(this._canvas.style.width)/640 : 1), y: (t.clientY - this._canvas.getBoundingClientRect().top) / (this._canvas.style.height ? parseInt(this._canvas.style.height)/360 : 1)};
+      // 简化：用clientX/Y估算游戏坐标（无需renderer转换）
+      var gx = pos.x, gy = pos.y;
+      var type = this._touchHitTest(gx, gy);
+      if (!type) continue;
+      this._touchMap.set(t.identifier, type);
+      if (type === 'dpad') { this._updateTouchDir(gx, gy); this._injectDirKeys(); }
+      else if (type === 'a') { this._touchBtn.A = true; this._keysJustPressed.add('KeyT'); this._keysDown.add('KeyT'); }
+      else if (type === 'b') { this._touchBtn.B = true; this._keysJustPressed.add('Enter'); this._keysDown.add('Enter'); }
+    }
+  }
+
+  _onTouchMove(e) {
+    var touches = e.changedTouches;
+    for (var i = 0; i < touches.length; i++) {
+      var t = touches[i];
+      var type = this._touchMap.get(t.identifier);
+      if (!type) continue;
+      var gx = t.clientX, gy = t.clientY;
+      if (this._canvas) {
+        var rect = this._canvas.getBoundingClientRect();
+        var scaleX = parseInt(this._canvas.style.width) / 640 || 1;
+        var scaleY = parseInt(this._canvas.style.height) / 360 || 1;
+        gx = (t.clientX - rect.left) / scaleX;
+        gy = (t.clientY - rect.top) / scaleY;
+      }
+      if (type === 'dpad') { this._updateTouchDir(gx, gy); this._injectDirKeys(); }
+      else if (type === 'a') {
+        var inA = Math.hypot(gx - this.btnAX, gy - this.btnAY) < this.btnR + 8;
+        if (!inA && this._touchBtn.A) { this._touchBtn.A = false; this._keysDown.delete('KeyT'); }
+      }
+      else if (type === 'b') {
+        var inB = Math.hypot(gx - this.btnBX, gy - this.btnBY) < this.btnR + 8;
+        if (!inB && this._touchBtn.B) { this._touchBtn.B = false; this._keysDown.delete('Enter'); }
+      }
+    }
+  }
+
+  _onTouchEnd(e) {
+    var touches = e.changedTouches;
+    for (var i = 0; i < touches.length; i++) {
+      var t = touches[i];
+      var type = this._touchMap.get(t.identifier);
+      if (!type) continue;
+      if (type === 'dpad') { this._touchDir.x = 0; this._touchDir.y = 0; this._clearDirKeys(); }
+      else if (type === 'a') { this._touchBtn.A = false; this._keysDown.delete('KeyT'); }
+      else if (type === 'b') { this._touchBtn.B = false; this._keysDown.delete('Enter'); }
+      this._touchMap.delete(t.identifier);
+    }
+  }
+
+  _injectDirKeys() {
+    this._clearDirKeys();
+    if (this._touchDir.y === -1) { this._keysDown.add('ArrowUp'); this._keysJustPressed.add('ArrowUp'); }
+    if (this._touchDir.y === 1) { this._keysDown.add('ArrowDown'); this._keysJustPressed.add('ArrowDown'); }
+    if (this._touchDir.x === -1) { this._keysDown.add('ArrowLeft'); this._keysJustPressed.add('ArrowLeft'); }
+    if (this._touchDir.x === 1) { this._keysDown.add('ArrowRight'); this._keysJustPressed.add('ArrowRight'); }
+  }
+
+  _clearDirKeys() {
+    this._keysDown.delete('ArrowUp'); this._keysDown.delete('ArrowDown');
+    this._keysDown.delete('ArrowLeft'); this._keysDown.delete('ArrowRight');
   }
 
   /** 每帧开始时调用，刷新 transient 状态，更新鼠标游戏坐标 */
